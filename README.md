@@ -1,4 +1,6 @@
 # DvgMail
+[![license][license-img]][github]
+
 ### How to install
 #### Client
 *Installation for client is coming soon...*
