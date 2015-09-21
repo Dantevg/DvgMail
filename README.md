@@ -1,4 +1,4 @@
-# DvgMail dev
+# DvgMail
 ### How to install
 #### Client
 *Installation for client is coming soon...*
