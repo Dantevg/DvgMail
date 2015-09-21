@@ -15,7 +15,6 @@
 ### Requirements
 * Mail server
 * dvg API
-* cctf API
 * advanced computer
 
 ### Screenshots
