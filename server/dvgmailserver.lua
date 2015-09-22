@@ -3,11 +3,11 @@
       by DvgCraft
       Wireless Modem required
       
-      DATE  16-07-2015
+      DATE  22-09-2015
 ]]--
 
 -- Variables
-local version = "1.0.1"
+local version = "2.0"
 local mail = {}
 local inbox = {}
 local msg = nil
@@ -29,6 +29,11 @@ function writeToFile(location, doSuffix)
   file.close()
 end
 
+function newAccount(user)
+  print("LOG   Making folder for new user "..user)
+  fs.makeDir("/disk/users/"..user)
+end
+
 -- Run
 print("-[[ DVGMAIL SERVER LOG ]]--------------------------")
 while true do
@@ -42,8 +47,7 @@ while true do
     if code == "DVG_MAIL_SEND" then --Send mail
       msg = textutils.unserialize(msg)
       if not fs.isDir("/disk/users/"..msg.receiver) then
-        print("LOG   Making folder for new user "..msg.receiver)
-        fs.makeDir("/disk/users/"..msg.receiver)
+        newAccount(msg.receiver)
       end
       if not fs.exists("/disk/users/"..msg.receiver.."/"..msg.subject) then
         writeToFile("/disk/users/"..msg.receiver.."/"..msg.subject, false)
@@ -65,14 +69,12 @@ while true do
       print("LOG   Writing mail to file")
       
     elseif code == "DVG_MAIL_INBOX_REQUEST" then --Receive inbox
-      if fs.isDir("/disk/users/"..id) then
-        inbox = textutils.serialize(fs.list("/disk/users/"..id))
-        rednet.send(id, inbox, "DVG_MAIL_INBOX_ANSWER")
-        print("LOG   Sent inbox to "..id)
-      else
-        print("ERROR User "..id.." doesn't exist")
-        rednet.send(id, "DVG_FAIL_USER-NOT-EXISTS", "DVG_MAIL_INBOX_ANSWER")
+      if not fs.isDir("/disk/users/"..id) then
+        newAccount(id)
       end
+      inbox = textutils.serialize(fs.list("/disk/users/"..id))
+      rednet.send(id, inbox, "DVG_MAIL_INBOX_ANSWER")
+      print("LOG   Sent inbox to "..id)
     
     elseif code == "DVG_MAIL_MAIL_REQUEST" then
       if fs.isDir("/disk/users/"..id) then
