@@ -1,234 +1,238 @@
 --[[
       DvgMail client
       by DvgCraft
-      Mail server, dvg API, cctf API and
+      Mail server, DvgAPI and
       advanced computer required
       
-      DATE  16-07-2015
+      DATE  22-09-2015
 ]]--
 
 -- Variables
-local version = "1.0.1"
-local inMain = true
-local inInbox = false
-local composing = false
+local version = "2.0 beta"
+local basePath = "/.DvgFiles/data/DvgMail"
+local running = true
+
 local settings = {}
 local mail = {}
-local selected = 1
+local mails = {}
 
-sides = {"right", "left", "top", "bottom", "back", "front"}
-
--- Menu functions
-function stop()
-  term.setTextColor(colors.white)
-  term.setBackgroundColor(colors.black)
-  inMain = false
-  inInbox = false
-  shell.run("clear")
-end
-function toMain()
-  inInbox = false
-  inMain = true
-  main()
-end
-
-local inboxMenu = {
-  [1] = {txt = "  X ",    func = toMain},
-}
-
-function readMail()
-  inInbox = false
-  mail = {}
-  rednet.send(tonumber(settings.serverID), inboxMenu[selected].txt, "DVG_MAIL_MAIL_REQUEST")
-  id, msg, code = rednet.receive("DVG_MAIL_MAIL_ANSWER", 10)
-  if type(msg) == "string" and msg:sub(1,8) == "DVG_FAIL" then
-    mail[1] = "ERROR CODE: "..msg
-  else
-    mail = textutils.unserialize(msg)
-    os.sleep(0.5)
-    header(true)
-    term.setCursorPos(1,3)
-    print(" < PRESS ANY KEY TO EXIT")
-    print("Subject: "..mail[1])
-    print("From:    "..mail[2])
-    print("")
-    for i = 3, #mail do
-      print(mail[i])
-    end
-    local event, key = os.pullEvent("key")
-    inbox()
-  end
-end
-function compose()
-  header(true)
-  term.setCursorPos(1,3)
-  
-  write("Receiver: ")
-  mail = {}
-  mail.receiver = read()
-  
-  write("Subject: ")
-  mail.subject = read()
-  
-  print("Message:")
-  composing = true
-  while composing do
-    input = read()
-    if input == "/send" then
-      composing = false
-    else
-      table.insert(mail, input)
-    end
-  end
-  
-  serializedMail = textutils.serialize(mail)
-  rednet.open(settings.mside)
-  rednet.send(tonumber(settings.serverID), serializedMail, "DVG_MAIL_SEND")
-  mail = {}
-end
-
-function inbox()
-  inMain = false
-  inInbox = true
-  selected = 1
-  inboxMenu = {[1] = {txt = "  X ",    func = toMain}}
-  rednet.send(tonumber(settings.serverID), "inbox", "DVG_MAIL_INBOX_REQUEST")
-  id, msg, code = rednet.receive("DVG_MAIL_INBOX_ANSWER", 10)
-  if not msg then
-    inboxMenu[2] = {txt = "No mail.", func = nil}
-  elseif type(msg) == "string" and msg:sub(1,8) == "DVG_FAIL" then
-    inboxMenu[2] = {txt = "CODE: "..msg, func = nil}
-  else
-    unserializedMsg = textutils.unserialize(msg)
-    msg = unserializedMsg
-    for i = 1, #msg do
-      inboxPart = {txt = msg[i], func = readMail}
-      table.insert(inboxMenu, inboxPart)
-    end
-  end
-  
-  while inInbox do
-    term.setCursorPos(1,3)
-    header(true)
-    printMenu(inboxMenu)
-    local event, key = os.pullEvent("key")
-    keyPressed(key, inboxMenu)
-    if not inInbox then break end
-  end
-end
-
--- Menu
-local mainMenu = {
-  [1] = {txt = "  X ",    func = stop},
-  [2] = {txt = "COMPOSE", func = compose},
-  [3] = {txt = "INBOX",   func = inbox}
-}
+local offset = 0
 
 -- Functions
-function header(clear)
-  if clear then term.clear() end
-  term.setCursorPos(1,1)
-  term.setBackgroundColor(colors.blue)
-  term.setTextColor(colors.white)
-  write("                                               ")
-  term.setBackgroundColor(colors.red)
-  print("  X ")
-  term.setBackgroundColor(colors.blue)
-  term.setCursorPos(1,1)
-  print("DvgMail v"..version)
-  term.setBackgroundColor(colors.white)
-  term.setTextColor(colors.black)
+function Exit()
+  term.setTextColor( colors.white )
+  term.setBackgroundColor( colors.black )
+  running = false
+  shell.run( "clear" )
 end
 
-function printMenu(menu)
-  term.setCursorPos(1,3)
-  for i = 1, #menu do
-    if i == 1 then
-      term.setCursorPos(46,1)
-      term.setBackgroundColor(colors.blue)
-      term.setTextColor(colors.white)
-      if i == selected then
-        print(" >")
-      else
-        print("  ")
-      end
-      term.setCursorPos(1,3)
-      term.setBackgroundColor(colors.white)
-      term.setTextColor(colors.black)
-    else
-      if i == selected then
-        print(" > "..menu[i].txt)
-      else
-        print("   "..menu[i].txt)
-      end
-    end
+function header(clear, ...)
+  term.setBackgroundColor( colors.white )
+  if clear then term.clear() end
+  term.setCursorPos( 1,1 )
+  term.setBackgroundColor( colors.blue )
+  term.setTextColor( colors.white )
+  if #arg == 1 and arg[1] then
+    write( " < " )
+  else
+    write( " x " )
   end
-end
-function keyPressed(key, menu)
-  if key == keys.enter then
-    menu[selected].func()
-  elseif key == keys.up and selected > 1 then
-    selected = selected - 1
-  elseif key == keys.down and selected < #menu then
-    selected = selected + 1
+  write( "DvgMail                              " )
+  if #arg == 2 and arg[2] then
+    write( "    > Send " )
+  else
+    write( "+ New Mail " )
   end
-end
-function main()
-  inInbox = false
-  inMain = true
-  selected = 1
-  while inMain do
-    term.setCursorPos(1,3)
-    header(true)
-    printMenu(mainMenu)
-    local event, key = os.pullEvent("key")
-    keyPressed(key, mainMenu)
-    if not inMain then break end
-  end
+  term.setBackgroundColor( colors.white )
+  term.setTextColor( colors.black )
+  term.setCursorPos( 1,3 )
 end
 
 function install()
-  fs.makeDir("/.DvgFiles/data/DvgMail")
-  local settings = fs.open("/.DvgFiles/data/DvgMail/settings.cctf", "w")
+  fs.makeDir(basePath)
   
-  write("Modem side (use ^/v keys): ")
-  input = read(nil, sides)
+  write( "Modem side (use ^/v keys): " )
+  input = read( nil, dvg.sides )
   if input ~= nil then
-    settings.writeLine("mside = "..input)
+    settings.mside = input
   else
-    error("Empty input!")
+    error( "Empty input!" )
+    fs.delete( basePath )
   end
   
-  write("Server ID: ")
+  write( "Server ID: " )
   input = read()
   if input ~= nil then
-    settings.writeLine("serverid = "..input)
+    settings.serverID = tonumber( input )
   else
-    error("Empty input!")
+    error( "Empty input!" )
+    fs.delete( basePath )
   end
+  
+  local file = fs.open( basePath.."/settings.cfg", "w" )
+  file.write( textutils.serialize(settings) )
   settings.close()
 end
 
--- Run
-term.setBackgroundColor(colors.white)
-term.setTextColor(colors.black)
-term.clear()
-term.setCursorPos(1,1)
-if not fs.exists("/.DvgFiles") then
-  error("You need to install DvgFiles first. (pastebin: Ds8VVrG6)")
-end
-header(true)
-if not fs.exists("/.DvgFiles/data/dvgMail") then
-  print("Preparing first startup.")
-  install()
-  header(true)
-end
-if not cctf.getFile then
-  if not fs.exists("/.DvgFiles/APIs/cctf") then
-    error("You need to install cctf interpreter first. (via pastebin: Ds8VVrG6)")
+function updateMails()
+  mails = {}
+  rednet.send( tonumber(settings.serverID), "inbox", "DVG_MAIL_INBOX_REQUEST" )
+  id, msg, code = rednet.receive( "DVG_MAIL_INBOX_ANSWER", 3 )
+  if not msg or ( #textutils.unserialize( msg ) == 0 ) then
+    mails = { [1] = "No mail" }
+  elseif type( msg ) == "string" and msg:sub( 1,8 ) == "DVG_FAIL" then
+    mails = { [1] = "Failed. Code: "..msg }
   else
-    os.loadAPI("/.DvgFiles/APIs/cctf")
+    msg = textutils.unserialize( msg )
+    for i = 1, #msg do
+      table.insert( mails, msg[i] )
+    end
   end
 end
-settings = cctf.getFile("/.DvgFiles/data/DvgMail/settings.cctf")
-main()
+
+function readMail(num)
+  header( true, true )
+  mail = {}
+  rednet.send( tonumber(settings.serverID), mails[num], "DVG_MAIL_MAIL_REQUEST" )
+  id, msg, code = rednet.receive( "DVG_MAIL_MAIL_ANSWER", 3 )
+  if msg:sub( 1,8 ) == "DVG_FAIL" then
+    mail[1] = "ERROR CODE: "..msg
+    mail[2] = "00"
+  end
+  mail = textutils.unserialize( msg )
+  term.setCursorPos( 1,3 )
+  term.setTextColor(colors.lightGray)
+  write( " "..tonumber(mail[2]) )
+  term.setTextColor(colors.black)
+  print( "  "..mail[1] )
+  print( "" )
+  for i = 3, #mail do
+    print( " "..mail[i] )
+  end
+  
+  while true do
+    local event, button, x, y = os.pullEvent( "mouse_click" )
+    if y == 1 then
+      if x >= 41 and x <= 51 then
+        compose()
+        updateMails()
+      elseif x >= 1 and x <= 3 then
+        break
+      end
+    end
+  end
+end
+function compose()
+  header( true, true, true )
+  term.setCursorPos( 1,3 )
+  write( " Receiver: " )
+  term.setBackgroundColor( colors.lightGray )
+  print( "               " )
+  print()
+  term.setBackgroundColor( colors.white )
+  write( " Subject:  " )
+  term.setBackgroundColor( colors.lightGray )
+  print( "               " )
+  print()
+  term.setBackgroundColor( colors.white )
+  print(" Message:" )
+  
+  mail = {}
+  local send = false
+  while true do
+    local event, button, x, y = os.pullEvent( "mouse_click" )
+    if y == 1 then
+      
+      if x >= 1 and x <= 3 then
+        break
+      elseif x >= 46 and x <= 51 then
+        if mail.receiver and mail.subject and #mail > 3 then
+          send = true
+          break
+        end
+      end
+      
+    elseif y == 3 then
+      term.setBackgroundColor( colors.lightGray )
+      term.setCursorPos( 12,3 )
+      mail.receiver = read()
+    elseif y == 5 then
+      term.setBackgroundColor( colors.lightGray )
+      term.setCursorPos( 12,5 )
+      mail.subject = read()
+    elseif y >= 7 then
+      
+      term.setBackgroundColor( colors.white )
+      term.setCursorPos( 1,8 )
+      while true do
+        write( " " )
+        input = read()
+        if input == "/send" then
+          break
+        else
+          table.insert( mail, input )
+        end
+      end
+      
+    end
+  end
+  
+  if send then
+    rednet.send( tonumber(settings.serverID), textutils.serialize(mail), "DVG_MAIL_SEND" )
+  end
+  mail = {}
+end
+function inbox()
+  updateMails()
+  
+  while running do
+    header( true )
+    local offsetMails = dvg.scroll( mails, height-3, offset )
+    for i = 1, #offsetMails do
+      print( " "..offsetMails[i] )
+    end
+    
+    local event, button, x, y = os.pullEvent( "mouse_click" )
+    if y == 1 then
+      if x >= 1 and x <= 3 then
+        Exit()
+      elseif x >= 41 and x <= 51 then
+        compose()
+        updateMails()
+      end
+    elseif y >= 3 then
+      readMail( y-2 )
+    end
+  end
+end
+
+-- Run
+term.setBackgroundColor( colors.white )
+term.setTextColor( colors.black )
+term.clear()
+local logo = paintutils.loadImage( basePath.."/logo" )
+paintutils.drawImage( logo, 19, 4 )
+term.setBackgroundColor( colors.white )
+
+if not dvg then assert( os.loadAPI("/.DvgFiles/APIs/dvg") ) end
+
+dvg.center( "Dvg Mail", 16 )
+os.sleep( 1.5 )
+header( true )
+if not fs.exists( "/.DvgFiles" ) then
+  error( "You need to install DvgFiles first. (pastebin: Ds8VVrG6)" )
+end
+if not fs.exists( basePath ) then
+  print( "Preparing first startup." )
+  install()
+  header( true )
+end
+
+local file = fs.open( basePath.."/settings.cfg", "r" )
+settings = textutils.unserialize( file.readAll() )
+file.close()
+width, height = term.getSize()
+if not rednet.isOpen( settings.mside ) then
+  rednet.open( settings.mside )
+end
+inbox()
