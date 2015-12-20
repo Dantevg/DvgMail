@@ -1,4 +1,5 @@
 # DvgMail
+
 ### How to install
 #### Client
 *Installation for client is coming soon...*
@@ -13,9 +14,14 @@
     ```
 
 ### Requirements
+**Client**
 * Mail server
 * dvg API
-* advanced computer
+* Advanced computer
+* Modem
+
+**Server**
+* Modem
 
 ### Screenshots
 *Coming soon...*
